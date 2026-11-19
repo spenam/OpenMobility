@@ -10,6 +10,8 @@ Starting with permanent road traffic counters published by the City of Paris, Op
 
 The long-term objective is to extend this foundation toward traffic forecasting, anomaly detection, road-network analysis, and explainable mobility intelligence.
 
+![Paris hourly traffic monitoring](images/road_analysis.png)
+
 ---
 
 ## Features

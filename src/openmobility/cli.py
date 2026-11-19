@@ -179,7 +179,6 @@ def evaluate(
     summary = run_evaluation(
         HOLDOUT_PREDICTIONS,
         output_dir=output_dir,
-        min_sensor_rows=min_sensor_rows,
     )
     if verbose:
         print("[bold]Evaluation summary[/bold]")

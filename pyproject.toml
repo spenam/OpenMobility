@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openmobility"
+version = "0.1.0"
+description = "CPU-first open urban mobility intelligence for Paris"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "OpenMobility contributors" }]
+dependencies = [
+  "requests>=2.32,<3",
+  "polars>=1.20,<2",
+  "pyarrow>=19,<25",
+  "PyYAML>=6,<7",
+  "typer>=0.15,<1",
+  "rich>=13.9,<15",
+  "python-dateutil>=2.9,<3",
+]
+
+[project.optional-dependencies]
+geo = ["geopandas>=1.0,<2", "shapely>=2.0,<3", "pyogrio>=0.10,<1"]
+ml = ["scikit-learn>=1.6,<2", "torch>=2.6"]
+dev = ["pytest>=8.3,<9", "ruff>=0.9,<1", "mypy>=1.14,<2"]
+
+[project.scripts]
+openmobility = "openmobility.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openmobility"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

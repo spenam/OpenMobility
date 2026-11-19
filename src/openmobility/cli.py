@@ -144,7 +144,8 @@ def map_traffic() -> None:
 def predict(
     output_dir: Path = Path("reports/forecasting"),
     horizon: int = typer.Option(24, min=1, max=168),
-    min_sensor_rows: int = typer.Option(240, min=100),
+    min_sensor_rows: int = typer.Option(40, min=20),
+    verbose: bool = typer.Option(False, help="Print detailed progress messages."),
 ) -> None:
     """Train/evaluate XGBoost traffic models and detect anomalies."""
     if not NORMALIZED.exists():
@@ -157,8 +158,9 @@ def predict(
         min_sensor_rows=min_sensor_rows,
         horizon=horizon,
     )
-    print("[bold green]Predictive analytics completed.[/bold green]")
-    print(json.dumps(summary, indent=2))
+    if verbose:
+        print("[bold]Predictive analytics summary[/bold]")
+        print(json.dumps(summary, indent=2))
 
 
 

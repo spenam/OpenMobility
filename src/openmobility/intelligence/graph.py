@@ -147,6 +147,11 @@ def _report_context(state: InvestigationState) -> str:
         indent=2,
     )
 
+def _finding_field(finding, field: str, default=None):
+    """Read a finding field from either a Pydantic model or a dict."""
+    if isinstance(finding, dict):
+        return finding.get(field, default)
+    return getattr(finding, field, default)
 
 def build_intelligence_graph(
     agent_runners: Mapping[AgentName, AgentRunner],
@@ -163,8 +168,17 @@ def build_intelligence_graph(
     if llm is None:
         llm = ChatOpenAI(model=model) # gpt-6-luna is default and does not accept temperature
 
-    supervisor_model = llm.with_structured_output(SupervisorDecision)
-    report_model = llm.with_structured_output(IntelligenceReport)
+    supervisor_model = llm.with_structured_output(
+        SupervisorDecision,
+        method="function_calling",
+        strict=False,
+    )
+
+    report_model = llm.with_structured_output(
+        IntelligenceReport,
+        method="function_calling",
+        strict=False,
+    )
 
     def supervisor_node(
         state: InvestigationState,
@@ -371,51 +385,78 @@ Investigation:
 
             report_data = report.model_dump()
 
+        
         except Exception as exc:
-            # A deterministic fallback ensures the investigation can still
-            # return its collected evidence if report generation fails.
             all_findings = [
                 finding
                 for key in FINDING_KEYS.values()
                 for finding in state.get(key, [])
             ]
 
+            def observations(agent: AgentName) -> list[str]:
+                return [
+                    item
+                    for finding in state.get(FINDING_KEYS[agent], [])
+                    for item in _finding_field(finding, "observations", [])
+                ]
+
+            def conclusions(agent: AgentName) -> list[str]:
+                return [
+                    item
+                    for finding in state.get(FINDING_KEYS[agent], [])
+                    for item in _finding_field(finding, "conclusions", [])
+                ]
+
+            evidence = [
+                item
+                for finding in all_findings
+                for item in _finding_field(finding, "evidence", [])
+            ]
+
+            limitations = [
+                item
+                for finding in all_findings
+                for item in _finding_field(finding, "limitations", [])
+            ]
+
+            # Preserve the actual failure messages.
+            for finding in all_findings:
+                error = _finding_field(finding, "error")
+                if error:
+                    agent = _finding_field(finding, "agent", "unknown")
+                    limitations.append(f"{agent} specialist error: {error}")
+
+            limitations.extend(
+                str(error) for error in state.get("errors", [])
+            )
+            limitations.append(f"Report synthesis failed: {exc}")
+
+            successful_confidences = [
+                float(_finding_field(finding, "confidence", 0.0))
+                for finding in all_findings
+                if _finding_field(finding, "status") == "completed"
+            ]
+
+            confidence = (
+                sum(successful_confidences) / len(successful_confidences)
+                if successful_confidences else 0.0
+            )
+
             report_data = IntelligenceReport(
                 executive_summary=(
-                    "The investigation collected specialist findings, "
-                    "but automated report synthesis was unavailable."
+                    "The investigation report was assembled from available "
+                    "specialist findings because automated synthesis failed. "
+                    "See limitations for specialist and synthesis errors."
                 ),
-                current_conditions=[
-                    item
-                    for finding in state.get("traffic_findings", [])
-                    for item in finding.observations
-                ],
-                forecasts=[
-                    item
-                    for finding in state.get("predictive_findings", [])
-                    for item in finding.observations
-                ],
-                geographic_observations=[
-                    item
-                    for finding in state.get("geospatial_findings", [])
-                    for item in finding.observations
-                ],
-                network_observations=[
-                    item
-                    for finding in state.get("network_findings", [])
-                    for item in finding.observations
-                ],
-                evidence=[
-                    evidence
-                    for finding in all_findings
-                    for evidence in finding.evidence
-                ],
-                limitations=[
-                    limitation
-                    for finding in all_findings
-                    for limitation in finding.limitations
-                ] + [f"Report synthesis failed: {exc}"],
-                confidence=0.0,
+                current_conditions=observations("traffic"),
+                anomalies=conclusions("traffic") + conclusions("predictive"),
+                historical_comparisons=conclusions("traffic"),
+                forecasts=observations("predictive"),
+                geographic_observations=observations("geospatial"),
+                network_observations=observations("network"),
+                evidence=evidence,
+                limitations=list(dict.fromkeys(limitations)),
+                confidence=confidence,
             ).model_dump()
 
         return {

@@ -14,3 +14,4 @@ data/processed/*
 *.parquet
 *.jsonl
 .DS_Store
+reports/*

@@ -161,7 +161,7 @@ def build_intelligence_graph(
     orchestration independent from the project's data-processing functions.
     """
     if llm is None:
-        llm = ChatOpenAI(model=model, temperature=0)
+        llm = ChatOpenAI(model=model) # gpt-6-luna is default and does not accept temperature
 
     supervisor_model = llm.with_structured_output(SupervisorDecision)
     report_model = llm.with_structured_output(IntelligenceReport)

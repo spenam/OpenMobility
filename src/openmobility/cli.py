@@ -24,6 +24,15 @@ from openmobility.visualization.traffic import (
     plot_sensor_availability,
     plot_traffic_summaries,
 )
+from openmobility.intelligence.graph import (
+    build_intelligence_graph,
+)
+from openmobility.intelligence.agents.runners import (
+    build_agent_runners,
+)
+from openmobility.intelligence.state import (
+    create_initial_state,
+)
 
 app = typer.Typer(no_args_is_help=True, help="OpenMobility Paris data tools")
 RAW = Path("data/raw/paris_traffic.jsonl")
@@ -181,6 +190,56 @@ def evaluate(
     if verbose:
         print("[bold]Evaluation summary[/bold]")
         print(json.dumps(summary, indent=2))
+
+@app.command()
+def intelligence(
+    question: str = typer.Argument(
+        ...,
+        help="Question to investigate using OpenMobility data.",
+    ),
+    max_iterations: int = typer.Option(4, min=1, max=4),
+    max_tool_calls: int = typer.Option(12, min=1, max=20),
+    horizon: int = typer.Option(24, min=1, max=168),
+    refresh: bool = typer.Option(
+        False,
+        help="Force predictive analytics to retrain.",
+    ),
+) -> None:
+    """Run an autonomous multi-agent mobility investigation."""
+    state = create_initial_state(
+        question,
+        investigation_scope={
+            "city": "Paris",
+            "forecast_horizon_hours": horizon,
+            "refresh_analytics": refresh,
+        },
+        max_iterations=max_iterations,
+        max_tool_calls=max_tool_calls,
+    )
+
+    graph = build_intelligence_graph(
+        build_agent_runners(),
+    )
+
+    result = graph.invoke(
+        state,
+        config={"recursion_limit": 20},
+    )
+
+    if result.get("final_report"):
+        print("[bold green]Intelligence report[/bold green]")
+        print(
+            json.dumps(
+                result["final_report"],
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+        )
+    else:
+        print("[bold red]Investigation did not complete[/bold red]")
+        print("Status:", result.get("status"))
+        print("Errors:", result.get("errors", []))
 
 
 

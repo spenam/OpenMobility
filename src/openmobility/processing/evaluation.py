@@ -50,9 +50,9 @@ def calculate_metrics(actual, predicted):
 def evaluate_holdout(
     input_csv,
     output_dir,
-    actual_col="target",
-    prediction_col="prediction",
-    baseline_col="lag_1",
+    actual_col="actual_flow",
+    prediction_col="xgboost_prediction",
+    baseline_col="seasonal_naive_prediction",
 ):
     """
     Evaluate XGBoost holdout predictions against a previous-hour baseline.
@@ -167,8 +167,8 @@ def evaluate_holdout(
 def plot_actual_vs_predicted(
     df,
     output_dir,
-    actual_col="target",
-    prediction_col="prediction",
+    actual_col="actual_flow",
+    prediction_col="xgboost_prediction",
     timestamp_col="timestamp",
     max_sensors=6,
 ):
@@ -184,12 +184,13 @@ def plot_actual_vs_predicted(
         )
         data = data.sort_values(timestamp_col)
 
-    # Select sensors with the most holdout observations.
+    # Select randomly sensors among the most holdout observations.
     sensor_ids = (
         data.groupby("sensor_id")
         .size()
         .sort_values(ascending=False)
-        .head(max_sensors)
+        .head(20 * max_sensors)
+        .sample(n=max_sensors, random_state=42)
         .index
     )
 
@@ -230,8 +231,8 @@ def plot_actual_vs_predicted(
         plt.close()
 
 
-def plot_residuals(df, output_dir, actual_col="target",
-                   prediction_col="prediction"):
+def plot_residuals(df, output_dir, actual_col="actual_flow",
+                   prediction_col="xgboost_prediction"):
     """Plot prediction errors."""
     residuals = (
         df[actual_col].to_numpy()
@@ -239,7 +240,7 @@ def plot_residuals(df, output_dir, actual_col="target",
     )
 
     plt.figure(figsize=(9, 5))
-    plt.hist(residuals, bins=30)
+    plt.hist(residuals, bins=80)
     plt.axvline(0, linestyle="--")
     plt.title("XGBoost prediction error distribution")
     plt.xlabel("Actual - predicted (vehicles/hour)")
@@ -250,7 +251,7 @@ def plot_residuals(df, output_dir, actual_col="target",
     plt.close()
 
     plt.figure(figsize=(9, 5))
-    plt.scatter(df[prediction_col], residuals, alpha=0.5)
+    plt.scatter(df[prediction_col], residuals, alpha=0.5, s=3)
     plt.axhline(0, linestyle="--")
     plt.title("Residuals versus predicted traffic")
     plt.xlabel("Predicted traffic (vehicles/hour)")
@@ -308,9 +309,9 @@ def plot_sensor_metrics(metrics, output_dir):
 def run_evaluation(
     input_csv,
     output_dir,
-    actual_col="target",
-    prediction_col="prediction",
-    baseline_col="lag_1",
+    actual_col="actual_flow",
+    prediction_col="xgboost_prediction",
+    baseline_col="seasonal_naive_prediction",
     timestamp_col="timestamp",
 ):
     """Run evaluation and generate all visualizations."""

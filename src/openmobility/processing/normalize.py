@@ -18,10 +18,10 @@ SENSOR_CANDIDATES = (
 )
 FLOW_CANDIDATES = (
     "debit_horaire", "debit", "comptage", "nombre_vehicules",
-    "nb_vehicules", "flow", "volume",
+    "nb_vehicules", "flow", "traffic_flow" "volume", "q"
 )
 OCCUPANCY_CANDIDATES = (
-    "taux_occupation", "occupation", "occupancy", "taux_occup",
+    "taux_occupation", "occupation", "occupancy", "occupancy_rate", "taux_occup",
 )
 STATE_CANDIDATES = ("etat_trafic", "etat", "traffic_state", "etat_de_la_circulation")
 

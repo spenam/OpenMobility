@@ -1,0 +1,13 @@
+city: Paris
+timezone: Europe/Paris
+source:
+  publisher: Ville de Paris
+  dataset_id: comptages-routiers-permanents
+  api_base: https://opendata.paris.fr/api/explore/v2.1/catalog/datasets
+  portal_url: https://opendata.paris.fr/explore/dataset/comptages-routiers-permanents/
+  license: ODbL
+  default_page_size: 100
+  default_max_records: 5000
+paths:
+  raw: data/raw/paris_traffic.jsonl
+  normalized: data/processed/paris_traffic_normalized.parquet

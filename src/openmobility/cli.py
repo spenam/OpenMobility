@@ -11,11 +11,13 @@ from openmobility.ingestion.paris_geography import (
     fetch_geographic_reference,
 )
 from openmobility.ingestion.paris_traffic import fetch_records
+from openmobility.processing.evaluation import run_evaluation
 from openmobility.processing.exploratory import build_exploratory_outputs
 from openmobility.processing.geography import (
     build_geographic_dataset,
 )
 from openmobility.processing.normalize import inspect_schema, normalize_records
+from openmobility.processing.predictive import run_predictive_analytics
 from openmobility.processing.quality import build_quality_report
 from openmobility.visualization.maps import create_traffic_map
 from openmobility.visualization.traffic import (
@@ -29,6 +31,7 @@ NORMALIZED = Path("data/processed/paris_traffic_normalized.parquet")
 GEO_RAW = Path("data/raw/paris_sensor_geography.geojson")
 GEO_PROCESSED = Path("data/processed/paris_sensor_geography.parquet")
 TRAFFIC_MAP = Path("reports/eda/sensor_traffic_map.html")
+HOLDOUT_PREDICTIONS = Path("reports/forecasting/holdout_predictions.csv")
 
 
 @app.command()
@@ -137,6 +140,48 @@ def map_traffic() -> None:
     )
 
     print(f"[green]Traffic map created:[/green] {output}")
+
+@app.command()
+def predict(
+    output_dir: Path = Path("reports/forecasting"),
+    horizon: int = typer.Option(24, min=1, max=168),
+    min_sensor_rows: int = typer.Option(40, min=20),
+    verbose: bool = typer.Option(False, help="Print detailed progress messages."),
+) -> None:
+    """Train/evaluate XGBoost traffic models and detect anomalies."""
+    if not NORMALIZED.exists():
+        raise typer.BadParameter(
+            f"Normalized dataset not found: {NORMALIZED}. Run preprocess first."
+        )
+    summary = run_predictive_analytics(
+        NORMALIZED,
+        output_dir=output_dir,
+        min_sensor_rows=min_sensor_rows,
+        horizon=horizon,
+    )
+    if verbose:
+        print("[bold]Predictive analytics summary[/bold]")
+        print(json.dumps(summary, indent=2))
+
+@app.command()
+def evaluate(
+    output_dir: Path = Path("reports/evaluation"),
+    min_sensor_rows: int = typer.Option(40, min=20),
+    verbose: bool = typer.Option(False, help="Print detailed progress messages."),
+) -> None:
+    """Evaluate XGBoost traffic models and compare to baseline."""
+    if not HOLDOUT_PREDICTIONS.exists():
+        raise typer.BadParameter(
+            f"Predictions dataset not found: {HOLDOUT_PREDICTIONS}. Run preprocess first."
+        )
+    summary = run_evaluation(
+        HOLDOUT_PREDICTIONS,
+        output_dir=output_dir,
+    )
+    if verbose:
+        print("[bold]Evaluation summary[/bold]")
+        print(json.dumps(summary, indent=2))
+
 
 
 if __name__ == "__main__":

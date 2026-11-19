@@ -32,6 +32,15 @@ class SpecialistFinding(BaseModel):
     evidence: list[Evidence] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
+    status: Literal["completed", "failed"] = "completed"
+    error: str | None = None
+
+class SupervisorDecision(BaseModel):
+    objectives: list[str] = Field(default_factory=list)
+    selected_agents: list[AgentName] = Field(default_factory=list)
+    next_agent: AgentName | None = None
+    investigation_complete: bool
+    reasoning: str
 
 
 class InvestigationPlan(BaseModel):

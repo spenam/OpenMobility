@@ -22,6 +22,8 @@ from openmobility.visualization.traffic import (
     plot_sensor_availability,
     plot_traffic_summaries,
 )
+from openmobility.processing.predictive import run_predictive_analytics
+
 
 app = typer.Typer(no_args_is_help=True, help="OpenMobility Paris data tools")
 RAW = Path("data/raw/paris_traffic.jsonl")
@@ -137,6 +139,27 @@ def map_traffic() -> None:
     )
 
     print(f"[green]Traffic map created:[/green] {output}")
+
+@app.command()
+def predict(
+    output_dir: Path = Path("reports/forecasting"),
+    horizon: int = typer.Option(24, min=1, max=168),
+    min_sensor_rows: int = typer.Option(240, min=100),
+) -> None:
+    """Train/evaluate XGBoost traffic models and detect anomalies."""
+    if not NORMALIZED.exists():
+        raise typer.BadParameter(
+            f"Normalized dataset not found: {NORMALIZED}. Run preprocess first."
+        )
+    summary = run_predictive_analytics(
+        NORMALIZED,
+        output_dir=output_dir,
+        min_sensor_rows=min_sensor_rows,
+        horizon=horizon,
+    )
+    print("[bold green]Predictive analytics completed.[/bold green]")
+    print(json.dumps(summary, indent=2))
+
 
 
 if __name__ == "__main__":

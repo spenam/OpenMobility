@@ -229,6 +229,20 @@ def intelligence(
         config={"recursion_limit": 20},
     )
 
+    console.print("\n[bold yellow]Specialist diagnostics[/bold yellow]")
+
+    for finding in result.get("specialist_findings", []):
+        console.print_json(
+            data=finding.model_dump()
+            if hasattr(finding, "model_dump")
+            else finding
+        )
+
+    if result.get("errors"):
+        console.print("\n[bold red]Investigation errors[/bold red]")
+        for error in result["errors"]:
+            console.print(str(error))
+
     if result.get("final_report"):
         print("[bold green]Intelligence report[/bold green]")
         print(

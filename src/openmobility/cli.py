@@ -6,8 +6,8 @@ from pathlib import Path
 import typer
 from dotenv import load_dotenv
 from rich import print
-from rich.table import Table
 from rich.console import Console
+from rich.table import Table
 
 from openmobility.ingestion.paris_geography import (
     fetch_geographic_reference,

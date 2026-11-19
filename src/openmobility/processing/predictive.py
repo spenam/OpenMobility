@@ -335,6 +335,13 @@ def run_predictive_analytics(
     forecasts_df.to_csv(output_dir / "next_24h_forecasts.csv", index=False)
     anomalies_df.to_csv(output_dir / "traffic_anomalies.csv", index=False)
 
+    metrics_df.to_parquet(output_dir / "model_metrics.parquet", index=False)
+    predictions_df.to_parquet(output_dir / "holdout_predictions.parquet", index=False)
+    forecasts_df.to_parquet(output_dir / "next_24h_forecasts.parquet", index=False)
+    anomalies_df.to_parquet(output_dir / "traffic_anomalies.parquet", index=False)
+
+
+
     summary = {
         "sensors_modelled": int(metrics_df["sensor_id"].nunique()),
         "holdout_rows": int(len(predictions_df)),

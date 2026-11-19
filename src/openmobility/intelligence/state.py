@@ -5,6 +5,12 @@ from datetime import datetime, timezone
 from operator import add
 from typing import Annotated, Literal, TypedDict
 
+from openmobility.intelligence.schemas import (
+    AgentName,
+    IntelligenceReport,
+    SpecialistFinding,
+)
+
 
 AgentName = Literal[
     "traffic",
@@ -67,6 +73,8 @@ class InvestigationState(TypedDict, total=False):
     # Execution history
     tool_history: Annotated[list[ToolExecution], add]
     agent_history: Annotated[list[AgentName], add]
+    tool_calls_count: int
+    max_tool_calls: int
 
     # Investigation control
     iteration_count: int
@@ -82,29 +90,39 @@ class InvestigationState(TypedDict, total=False):
 
 def create_initial_state(
     question: str,
-    max_iterations: int = 8,
+    *,
+    investigation_scope: dict | None = None,
+    max_iterations: int = 4,
+    max_tool_calls: int = 12,
 ) -> InvestigationState:
-    """Create a fresh investigation state."""
+    if not question.strip():
+        raise ValueError("The investigation question cannot be empty.")
 
-    return InvestigationState(
-        investigation_id=datetime.now(timezone.utc).isoformat(),
-        user_question=question,
-        objectives=[],
-        investigation_scope={},
-        selected_agents=[],
-        execution_queue=[],
-        current_agent=None,
-        traffic_findings=[],
-        predictive_findings=[],
-        geospatial_findings=[],
-        network_findings=[],
-        tool_history=[],
-        agent_history=[],
-        iteration_count=0,
-        max_iterations=max_iterations,
-        status="planning",
-        next_action="plan",
-        supervisor_notes=[],
-        final_report=None,
-        errors=[],
-    )
+    if max_iterations < 1:
+        raise ValueError("max_iterations must be at least 1.")
+
+    if max_tool_calls < 1:
+        raise ValueError("max_tool_calls must be at least 1.")
+
+    return {
+        "investigation_id": datetime.now(timezone.utc).isoformat(),
+        "user_question": question,
+        "objectives": [],
+        "investigation_scope": investigation_scope or {},
+        "selected_agents": [],
+        "current_agent": None,
+        "agent_history": [],
+        "traffic_findings": [],
+        "predictive_findings": [],
+        "geospatial_findings": [],
+        "network_findings": [],
+        "tool_history": [],
+        "tool_calls_count": 0,
+        "max_tool_calls": max_tool_calls,
+        "iteration_count": 0,
+        "max_iterations": max_iterations,
+        "supervisor_notes": [],
+        "errors": [],
+        "status": "planning",
+        "final_report": None,
+    }

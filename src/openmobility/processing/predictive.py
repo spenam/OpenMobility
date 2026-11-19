@@ -16,39 +16,70 @@ from xgboost import XGBRegressor
 REQUIRED_COLUMNS = {"timestamp", "sensor_id", "flow_vehicles_per_hour"}
 
 
-def _load_sensor_frame(parquet_path: Path, min_rows: int = 240) -> dict[str, pd.DataFrame]:
+def _load_sensor_frame(
+    parquet_path: Path,
+    min_rows: int = 240,
+) -> tuple[dict[str, pd.DataFrame], list[dict]]:
     raw = pl.read_parquet(parquet_path)
+
     missing = REQUIRED_COLUMNS - set(raw.columns)
     if missing:
-        raise ValueError(f"Normalized dataset is missing columns: {sorted(missing)}")
-    pdf = raw.select(
-        ["timestamp", "sensor_id", "flow_vehicles_per_hour"]
-        + (["occupancy_pct"] if "occupancy_pct" in raw.columns else [])
-    ).to_pandas()
-    pdf["timestamp"] = pd.to_datetime(pdf["timestamp"], utc=True, errors="coerce")
-    pdf["timestamp"] = pdf["timestamp"].dt.tz_convert("Europe/Paris")
+        raise ValueError(
+            f"Normalized dataset is missing columns: {sorted(missing)}"
+        )
+
+    columns = [
+        "timestamp",
+        "sensor_id",
+        "flow_vehicles_per_hour",
+    ]
+    if "occupancy_pct" in raw.columns:
+        columns.append("occupancy_pct")
+
+    pdf = raw.select(columns).to_pandas()
+
+    pdf["timestamp"] = pd.to_datetime(
+        pdf["timestamp"], utc=True, errors="coerce"
+    ).dt.tz_convert("Europe/Paris")
+
     pdf["flow_vehicles_per_hour"] = pd.to_numeric(
         pdf["flow_vehicles_per_hour"], errors="coerce"
     )
-    if "occupancy_pct" in pdf:
-        pdf["occupancy_pct"] = pd.to_numeric(pdf["occupancy_pct"], errors="coerce")
 
-    result: dict[str, pd.DataFrame] = {}
-    for sensor, group in pdf.dropna(subset=["timestamp"]).groupby("sensor_id"):
-        group = group.dropna(subset=["flow_vehicles_per_hour"])
-        if group.empty:
-            continue
-        hourly = (
-            group.groupby("timestamp")["flow_vehicles_per_hour"].mean()
-            .sort_index()
-            .resample("1h").mean()
+    if "occupancy_pct" in pdf:
+        pdf["occupancy_pct"] = pd.to_numeric(
+            pdf["occupancy_pct"], errors="coerce"
         )
-        # Short gaps are filled for lag features only. Missing target hours remain
-        # excluded because the original series is retained in target_observed.
+
+    result = {}
+    skipped = []
+
+    for sensor, group in pdf.groupby("sensor_id"):
+        group = group.dropna(
+            subset=["timestamp", "flow_vehicles_per_hour"]
+        )
+
+        hourly = (
+            group.groupby("timestamp")["flow_vehicles_per_hour"]
+            .mean()
+            .sort_index()
+            .resample("1h")
+            .mean()
+        )
+
+        valid_hours = int(hourly.notna().sum())
+
+        # Only sensors passing the minimum-history condition are used.
+        if valid_hours < min_rows:
+            skipped.append({
+                "sensor_id": str(sensor),
+                "valid_hours": valid_hours,
+                "reason": "insufficient_history",
+            })
+            continue
+
         observed = hourly.notna()
         flow_features = hourly.ffill(limit=3)
-        if int(observed.sum()) < min_rows:
-            continue
 
         frame = pd.DataFrame(index=hourly.index)
         frame["target"] = hourly
@@ -56,30 +87,51 @@ def _load_sensor_frame(parquet_path: Path, min_rows: int = 240) -> dict[str, pd.
         frame["lag_1"] = flow_features.shift(1)
         frame["lag_24"] = flow_features.shift(24)
         frame["lag_168"] = flow_features.shift(168)
-        frame["rolling_mean_24"] = flow_features.shift(1).rolling(24, min_periods=6).mean()
-        frame["rolling_mean_168"] = flow_features.shift(1).rolling(168, min_periods=24).mean()
+        frame["rolling_mean_24"] = (
+            flow_features.shift(1).rolling(24, min_periods=6).mean()
+        )
+        frame["rolling_mean_168"] = (
+            flow_features.shift(1).rolling(168, min_periods=24).mean()
+        )
+
         frame["hour"] = frame.index.hour
         frame["day_of_week"] = frame.index.dayofweek
-        frame["is_weekend"] = (frame["day_of_week"] >= 5).astype(int)
-        frame["hour_sin"] = np.sin(2 * np.pi * frame["hour"] / 24)
-        frame["hour_cos"] = np.cos(2 * np.pi * frame["hour"] / 24)
-        frame["dow_sin"] = np.sin(2 * np.pi * frame["day_of_week"] / 7)
-        frame["dow_cos"] = np.cos(2 * np.pi * frame["day_of_week"] / 7)
+        frame["is_weekend"] = (
+            frame["day_of_week"] >= 5
+        ).astype(int)
+
+        frame["hour_sin"] = np.sin(
+            2 * np.pi * frame["hour"] / 24
+        )
+        frame["hour_cos"] = np.cos(
+            2 * np.pi * frame["hour"] / 24
+        )
+        frame["dow_sin"] = np.sin(
+            2 * np.pi * frame["day_of_week"] / 7
+        )
+        frame["dow_cos"] = np.cos(
+            2 * np.pi * frame["day_of_week"] / 7
+        )
+
         if "occupancy_pct" in group.columns:
-            occ = (
-                group.groupby("timestamp")["occupancy_pct"].mean()
-                .sort_index().resample("1h").mean().reindex(frame.index)
+            occupancy = (
+                group.groupby("timestamp")["occupancy_pct"]
+                .mean()
+                .sort_index()
+                .resample("1h")
+                .mean()
+                .reindex(frame.index)
             )
-            frame["occupancy_lag_1"] = occ.ffill(limit=3).shift(1)
+            frame["occupancy_lag_1"] = occupancy.ffill(limit=3).shift(1)
         else:
             frame["occupancy_lag_1"] = np.nan
 
-        # Keep every observed target for future recursive forecasting. Rows with
-        # incomplete lag features are filtered only when constructing model sets.
+        # Keep observed targets. Feature warm-up rows are filtered later.
         frame = frame.loc[frame["target_observed"]]
-        if len(frame) >= 100:
-            result[str(sensor)] = frame
-    return result
+
+        result[str(sensor)] = frame
+
+    return result, skipped
 
 
 FEATURES = [
@@ -151,12 +203,28 @@ def run_predictive_analytics(
 ) -> dict:
     """Train/evaluate one XGBoost model per sensor and forecast the next hours."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    sensors = _load_sensor_frame(parquet_path, min_rows=min_sensor_rows)
+    sensors, skipped_sensors = _load_sensor_frame(
+        parquet_path,
+        min_rows=min_sensor_rows,
+    )
+
+    print(f"Sensors eligible for modelling: {len(sensors)}")
+    print(f"Sensors skipped: {len(skipped_sensors)}")
+
     if not sensors:
-        raise ValueError(
-            "No sensors have enough usable hourly history. "
-            "Need at least 240 observations per sensor by default."
+        summary = {
+            "status": "no_eligible_sensors",
+            "minimum_required_hours": min_sensor_rows,
+            "eligible_sensors": 0,
+            "skipped_sensors": skipped_sensors,
+        }
+
+        (output_dir / "summary.json").write_text(
+            json.dumps(summary, indent=2),
+            encoding="utf-8",
         )
+
+        return summary
 
     metrics_rows = []
     prediction_frames = []
@@ -167,11 +235,16 @@ def run_predictive_analytics(
 
     for sensor_id, frame in sensors.items():
         model_frame = frame.dropna(
-            subset=["target", "lag_1", "lag_24", "lag_168", "rolling_mean_24"]
+            subset=["target", "lag_1", "lag_24", "rolling_mean_24"]
         )
         split = int(len(model_frame) * 0.8)
         train, test = model_frame.iloc[:split], model_frame.iloc[split:]
         if len(train) < 80 or len(test) < 12:
+            skipped_sensors.append({
+                "sensor_id": sensor_id,
+                "usable_rows": len(model_frame),
+                "reason": "insufficient_rows_for_train_test_split",
+            })
             continue
 
         model = _model()
@@ -238,7 +311,19 @@ def run_predictive_analytics(
         future_frames.append(pd.DataFrame(rows))
 
     if not metrics_rows:
-        raise ValueError("Not enough data per sensor to create a chronological train/test split.")
+        summary = {
+            "status": "no_modelable_sensors",
+            "minimum_required_hours": min_sensor_rows,
+            "eligible_sensors": len(sensors),
+            "skipped_sensors": skipped_sensors,
+        }
+
+        (output_dir / "summary.json").write_text(
+            json.dumps(summary, indent=2),
+            encoding="utf-8",
+        )
+
+        return summary
 
     metrics_df = pd.DataFrame(metrics_rows)
     predictions_df = pd.concat(prediction_frames, ignore_index=True)
@@ -261,6 +346,9 @@ def run_predictive_analytics(
         "anomalies_file": str(output_dir / "traffic_anomalies.csv"),
         "models_directory": str(model_dir),
         "mean_metrics_by_model": metrics_df.groupby("model")[["mae", "rmse", "mape_pct"]].mean().round(3).to_dict(),
+        "status": "success",
+        "eligible_sensors": len(sensors),
+        "skipped_sensors": skipped_sensors,
     }
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return summary

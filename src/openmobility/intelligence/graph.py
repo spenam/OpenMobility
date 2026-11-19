@@ -152,7 +152,7 @@ def build_intelligence_graph(
     agent_runners: Mapping[AgentName, AgentRunner],
     *,
     llm=None,
-    model: str = "gpt-4.1-mini",
+    model: str = "gpt-6-luna",
 ):
     """
     Build and compile the sequential multi-agent investigation graph.

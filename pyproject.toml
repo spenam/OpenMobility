@@ -25,17 +25,16 @@ dependencies = [
   "pandas>=2.2,<4",
   "xgboost>=2.1,<4",
   "langgraph>=0.3,<2",
-  "langchain-openai>=0.3,<2"
-]
-
-[project.optional-dependencies]
-geo = [
+  "langchain-openai>=0.3,<2",
   "geopandas>=1.0,<2", 
   "shapely>=2.0,<3", 
   "pyogrio>=0.10,<1",
   "folium>=0.18,<1",
+  "scikit-learn>=1.6,<2", 
+  "torch>=2.6"
 ]
-ml = ["scikit-learn>=1.6,<2", "torch>=2.6"]
+
+[project.optional-dependencies]
 dev = ["pytest>=8.3,<9", "ruff>=0.9,<1", "mypy>=1.14,<2"]
 
 [project.scripts]

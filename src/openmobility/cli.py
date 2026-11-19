@@ -11,21 +11,19 @@ from openmobility.ingestion.paris_geography import (
     fetch_geographic_reference,
 )
 from openmobility.ingestion.paris_traffic import fetch_records
+from openmobility.processing.evaluation import run_evaluation
 from openmobility.processing.exploratory import build_exploratory_outputs
 from openmobility.processing.geography import (
     build_geographic_dataset,
 )
 from openmobility.processing.normalize import inspect_schema, normalize_records
+from openmobility.processing.predictive import run_predictive_analytics
 from openmobility.processing.quality import build_quality_report
 from openmobility.visualization.maps import create_traffic_map
 from openmobility.visualization.traffic import (
     plot_sensor_availability,
     plot_traffic_summaries,
 )
-from openmobility.processing.predictive import run_predictive_analytics
-from openmobility.processing.evaluation import run_evaluation
-
-
 
 app = typer.Typer(no_args_is_help=True, help="OpenMobility Paris data tools")
 RAW = Path("data/raw/paris_traffic.jsonl")

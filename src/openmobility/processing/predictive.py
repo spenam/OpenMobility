@@ -8,10 +8,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import polars as pl
+from tqdm import tqdm
 from xgboost import XGBRegressor
 
 REQUIRED_COLUMNS = {"timestamp", "sensor_id", "flow_vehicles_per_hour"}
@@ -156,7 +156,8 @@ def _model() -> XGBRegressor:
 def _metrics(actual: np.ndarray, predicted: np.ndarray) -> dict[str, float]:
     errors = predicted - actual
     nonzero = np.abs(actual) > 1e-8
-    mape = float(np.mean(np.abs(errors[nonzero] / actual[nonzero])) * 100) if nonzero.any() else float("nan")
+    mape = float(
+        np.mean(np.abs(errors[nonzero] / actual[nonzero])) * 100) if nonzero.any() else float("nan")
     return {
         "mae": float(np.mean(np.abs(errors))),
         "rmse": float(np.sqrt(np.mean(errors ** 2))),
@@ -254,7 +255,8 @@ def run_predictive_analytics(
         actual = test["target"].to_numpy(dtype=float)
 
         metrics_rows.extend([
-            {"sensor_id": sensor_id, "model": "seasonal_naive_24h", **_metrics(actual, baseline_pred)},
+            {"sensor_id": sensor_id, "model": "seasonal_naive_24h", 
+             **_metrics(actual, baseline_pred)},
             {"sensor_id": sensor_id, "model": "xgboost", **_metrics(actual, xgb_pred)},
         ])
 
@@ -294,7 +296,9 @@ def run_predictive_analytics(
         # warm-up, so the 24-hour seasonal lag is available when possible.
         history = frame["target"].dropna().copy()
         last_timestamp = history.index[-1]
-        occ = float(frame["occupancy_lag_1"].dropna().iloc[-1]) if frame["occupancy_lag_1"].notna().any() else 0.0
+        occ = float(
+            frame["occupancy_lag_1"].dropna()
+            .iloc[-1]) if frame["occupancy_lag_1"].notna().any() else 0.0
         rows = []
         for step in range(1, horizon + 1):
             ts = last_timestamp + pd.Timedelta(hours=step)
@@ -327,8 +331,10 @@ def run_predictive_analytics(
 
     metrics_df = pd.DataFrame(metrics_rows)
     predictions_df = pd.concat(prediction_frames, ignore_index=True)
-    forecasts_df = pd.concat(future_frames, ignore_index=True) if future_frames else pd.DataFrame()
-    anomalies_df = pd.concat(anomaly_frames, ignore_index=True) if anomaly_frames else pd.DataFrame()
+    forecasts_df = pd.concat(
+        future_frames, ignore_index=True) if future_frames else pd.DataFrame()
+    anomalies_df = pd.concat(
+        anomaly_frames, ignore_index=True) if anomaly_frames else pd.DataFrame()
 
     metrics_df.to_csv(output_dir / "model_metrics.csv", index=False)
     predictions_df.to_csv(output_dir / "holdout_predictions.csv", index=False)
@@ -352,7 +358,8 @@ def run_predictive_analytics(
         "forecast_file": str(output_dir / "next_24h_forecasts.csv"),
         "anomalies_file": str(output_dir / "traffic_anomalies.csv"),
         "models_directory": str(model_dir),
-        "mean_metrics_by_model": metrics_df.groupby("model")[["mae", "rmse", "mape_pct"]].mean().round(3).to_dict(),
+        "mean_metrics_by_model": metrics_df.groupby("model")[["mae", "rmse", "mape_pct"]]
+        .mean().round(3).to_dict(),
         "status": "success",
         "eligible_sensors": len(sensors),
         "skipped_sensors": skipped_sensors,

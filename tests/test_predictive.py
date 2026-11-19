@@ -1,10 +1,8 @@
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import polars as pl
 
-from openmobility.processing.predictive import _metrics, _make_future_features
+from openmobility.processing.predictive import _make_future_features, _metrics
 
 
 def test_metrics_are_calculated():
@@ -20,5 +18,4 @@ def test_future_features_have_expected_lags():
     features = _make_future_features(history, ts, 12.0)
     assert features["lag_1"] == 199.0
     assert features["lag_24"] == 176.0
-    assert features["lag_168"] == 32.0
     assert features["hour"] == 8

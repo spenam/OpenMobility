@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 from openmobility.intelligence.state import (
     AgentName,
 )
+
+
 class Evidence(BaseModel):
     source: str
     description: str

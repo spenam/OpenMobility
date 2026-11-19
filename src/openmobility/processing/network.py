@@ -192,7 +192,7 @@ def build_network_topology(
             for point in points
         })
 
-        for start, end in zip(positions, positions[1:]):
+        for start, end in zip(positions, positions[1:], strict=False):
             if end - start <= 0.01:
                 continue
 

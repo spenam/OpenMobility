@@ -10,6 +10,8 @@ from rich.table import Table
 from openmobility.ingestion.paris_traffic import fetch_records
 from openmobility.processing.normalize import inspect_schema, normalize_records
 from openmobility.processing.quality import build_quality_report
+from openmobility.processing.exploratory import build_exploratory_outputs
+from openmobility.visualization.traffic import plot_traffic_summaries
 
 app = typer.Typer(no_args_is_help=True, help="OpenMobility Paris data tools")
 RAW = Path("data/raw/paris_traffic.jsonl")
@@ -60,6 +62,25 @@ def quality() -> None:
 
     report = build_quality_report(NORMALIZED)
     print(json.dumps(report, indent=2, default=str))
+
+@app.command()
+def explore(
+    output_dir: Path = Path("reports/eda"),
+) -> None:
+    """Generate exploratory traffic summaries and charts."""
+    if not NORMALIZED.exists():
+        raise typer.BadParameter(
+            f"Normalized dataset not found: {NORMALIZED}. Run preprocess first."
+        )
+
+    summary = build_exploratory_outputs(NORMALIZED, output_dir)
+
+    chart_dir = output_dir / "charts"
+    plot_traffic_summaries(output_dir, chart_dir)
+
+    print("[bold green]Exploratory analysis completed.[/bold green]")
+    print(json.dumps(summary, indent=2))
+    print(f"Charts saved to: {chart_dir}")
 
 
 if __name__ == "__main__":

@@ -20,7 +20,8 @@ dependencies = [
   "python-dateutil>=2.9,<3",
   "tzdata",
   "matplotlib>=3.8,<4",
-  "dotenv"
+  "dotenv",
+  "tqdm>=4.66"
 ]
 
 [project.optional-dependencies]

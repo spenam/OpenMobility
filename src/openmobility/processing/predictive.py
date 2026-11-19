@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -86,12 +87,8 @@ def _load_sensor_frame(
         frame["target_observed"] = observed
         frame["lag_1"] = flow_features.shift(1)
         frame["lag_24"] = flow_features.shift(24)
-        frame["lag_168"] = flow_features.shift(168)
         frame["rolling_mean_24"] = (
             flow_features.shift(1).rolling(24, min_periods=6).mean()
-        )
-        frame["rolling_mean_168"] = (
-            flow_features.shift(1).rolling(168, min_periods=24).mean()
         )
 
         frame["hour"] = frame.index.hour
@@ -135,8 +132,8 @@ def _load_sensor_frame(
 
 
 FEATURES = [
-    "lag_1", "lag_24", "lag_168", "rolling_mean_24",
-    "rolling_mean_168", "hour", "day_of_week", "is_weekend",
+    "lag_1", "lag_24", "rolling_mean_24",
+    "hour", "day_of_week", "is_weekend",
     "hour_sin", "hour_cos", "dow_sin", "dow_cos", "occupancy_lag_1",
 ]
 
@@ -171,7 +168,7 @@ def _metrics(actual: np.ndarray, predicted: np.ndarray) -> dict[str, float]:
 def _seasonal_prediction(frame: pd.DataFrame) -> np.ndarray:
     # At the same weekday/hour last week; use yesterday at the same hour if
     # a weekly lag is unavailable (normally removed by feature filtering).
-    return frame["lag_168"].to_numpy(dtype=float)
+    return frame["lag_24"].to_numpy(dtype=float)
 
 
 def _make_future_features(history: pd.Series, timestamp: pd.Timestamp, occupancy: float) -> dict:
@@ -179,13 +176,11 @@ def _make_future_features(history: pd.Series, timestamp: pd.Timestamp, occupancy
     def lag(n: int) -> float:
         return float(values[-n]) if len(values) >= n else float(values[-1])
     tail24 = values[-24:] if len(values) else np.array([0.0])
-    tail168 = values[-168:] if len(values) else np.array([0.0])
     dow = timestamp.dayofweek
     hour = timestamp.hour
     return {
-        "lag_1": lag(1), "lag_24": lag(24), "lag_168": lag(168),
+        "lag_1": lag(1), "lag_24": lag(24),
         "rolling_mean_24": float(np.mean(tail24)),
-        "rolling_mean_168": float(np.mean(tail168)),
         "hour": hour, "day_of_week": dow, "is_weekend": int(dow >= 5),
         "hour_sin": float(np.sin(2 * np.pi * hour / 24)),
         "hour_cos": float(np.cos(2 * np.pi * hour / 24)),
@@ -233,7 +228,12 @@ def run_predictive_analytics(
     model_dir = output_dir / "models"
     model_dir.mkdir(exist_ok=True)
 
-    for sensor_id, frame in sensors.items():
+    for sensor_id, frame in tqdm(
+        sensors.items(),
+        total=len(sensors),
+        desc="Training and predicting",
+        unit="sensor",
+    ):
         model_frame = frame.dropna(
             subset=["target", "lag_1", "lag_24", "rolling_mean_24"]
         )
@@ -254,7 +254,7 @@ def run_predictive_analytics(
         actual = test["target"].to_numpy(dtype=float)
 
         metrics_rows.extend([
-            {"sensor_id": sensor_id, "model": "seasonal_naive_168h", **_metrics(actual, baseline_pred)},
+            {"sensor_id": sensor_id, "model": "seasonal_naive_24h", **_metrics(actual, baseline_pred)},
             {"sensor_id": sensor_id, "model": "xgboost", **_metrics(actual, xgb_pred)},
         ])
 
@@ -291,7 +291,7 @@ def run_predictive_analytics(
         final_model.save_model(str(model_dir / f"sensor_{sensor_id}.json"))
 
         # Use the full observed hourly series, not just rows surviving the lag
-        # warm-up, so the 168-hour seasonal lag is available when possible.
+        # warm-up, so the 24-hour seasonal lag is available when possible.
         history = frame["target"].dropna().copy()
         last_timestamp = history.index[-1]
         occ = float(frame["occupancy_lag_1"].dropna().iloc[-1]) if frame["occupancy_lag_1"].notna().any() else 0.0

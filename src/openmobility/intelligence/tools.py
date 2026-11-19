@@ -24,7 +24,7 @@ def _require_file(path: Path, description: str) -> None:
             "Run the relevant ingestion/preprocessing command first."
         )
 
-def get_quality() -> dict:
+def get_traffic_quality() -> dict:
     if not NORMALIZED.exists():
         raise FileNotFoundError("Run preprocessing first.")
     return build_quality_report(NORMALIZED)

@@ -2,7 +2,6 @@ from pathlib import Path
 
 import requests
 
-
 GEOGRAPHY_URL = (
     "https://opendata.paris.fr/api/explore/v2.1/catalog/"
     "datasets/referentiel-comptages-routiers/exports/geojson"

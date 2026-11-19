@@ -1,12 +1,11 @@
-from pathlib import Path
+import json
 import os
-from dotenv import load_dotenv
+from pathlib import Path
 
-
+import branca.colormap as cm
 import folium
 import geopandas as gpd
-import branca.colormap as cm
-import json
+from dotenv import load_dotenv
 
 load_dotenv()
 

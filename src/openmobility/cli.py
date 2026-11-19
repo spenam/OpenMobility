@@ -7,21 +7,21 @@ import typer
 from rich import print
 from rich.table import Table
 
-from openmobility.ingestion.paris_traffic import fetch_records
-from openmobility.processing.exploratory import build_exploratory_outputs
-from openmobility.processing.normalize import inspect_schema, normalize_records
-from openmobility.processing.quality import build_quality_report
-from openmobility.visualization.traffic import (
-    plot_traffic_summaries,
-    plot_sensor_availability,
-)
 from openmobility.ingestion.paris_geography import (
     fetch_geographic_reference,
 )
+from openmobility.ingestion.paris_traffic import fetch_records
+from openmobility.processing.exploratory import build_exploratory_outputs
 from openmobility.processing.geography import (
     build_geographic_dataset,
 )
+from openmobility.processing.normalize import inspect_schema, normalize_records
+from openmobility.processing.quality import build_quality_report
 from openmobility.visualization.maps import create_traffic_map
+from openmobility.visualization.traffic import (
+    plot_sensor_availability,
+    plot_traffic_summaries,
+)
 
 app = typer.Typer(no_args_is_help=True, help="OpenMobility Paris data tools")
 RAW = Path("data/raw/paris_traffic.jsonl")

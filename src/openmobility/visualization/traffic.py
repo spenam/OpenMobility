@@ -1,9 +1,9 @@
+from datetime import datetime
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from datetime import datetime
 
 
 def plot_traffic_summaries(

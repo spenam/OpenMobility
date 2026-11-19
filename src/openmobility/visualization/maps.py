@@ -60,25 +60,37 @@ def create_traffic_map(
     carto_api_key = os.getenv("CARTO_API_KEY")
 
     if not carto_api_key:
-        raise ValueError("CARTO_API_KEY is missing from environment variables.")
+        warning = (
+            "[yellow]Warning:[/yellow] CARTO_API_KEY not set. "
+            "Using default OpenStreetMap tiles instead of CARTO basemap."
+        )
+        print(warning)
+        center = mapped.geometry.union_all().centroid
 
-    carto_tiles = (
-        "https://{s}.basemaps.cartocdn.com/"
-        "light_all/{z}/{x}/{y}.png"
-        f"?key={carto_api_key}"
-    )
+        traffic_map = folium.Map(
+            location=[center.y, center.x],
+            zoom_start=12,
+            tiles="CartoDB positron",
+        )
 
-    traffic_map = folium.Map(
-        location=[center.y, center.x],
-        zoom_start=12,
-        tiles=carto_tiles,
-        attr=(
-            '&copy; <a href="https://www.openstreetmap.org/copyright">'
-            'OpenStreetMap</a> contributors '
-            '&copy; <a href="https://carto.com/attributions">CARTO</a>'
-        ),
-        subdomains="abcd",
-    )
+    else:
+        carto_tiles = (
+            "https://{s}.basemaps.cartocdn.com/"
+            "light_all/{z}/{x}/{y}.png"
+            f"?key={carto_api_key}"
+        )
+
+        traffic_map = folium.Map(
+            location=[center.y, center.x],
+            zoom_start=12,
+            tiles=carto_tiles,
+            attr=(
+                '&copy; <a href="https://www.openstreetmap.org/copyright">'
+                'OpenStreetMap</a> contributors '
+                '&copy; <a href="https://carto.com/attributions">CARTO</a>'
+            ),
+            subdomains="abcd",
+        )
 
     def style_function(feature):
         value = feature["properties"].get("mean_flow")

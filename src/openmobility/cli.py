@@ -37,6 +37,7 @@ from openmobility.visualization.traffic import (
 )
 
 load_dotenv()
+console = Console()
 
 app = typer.Typer(no_args_is_help=True, help="OpenMobility Paris data tools")
 RAW = Path("data/raw/paris_traffic.jsonl")

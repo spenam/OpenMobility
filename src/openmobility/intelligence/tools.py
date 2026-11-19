@@ -64,6 +64,7 @@ def _forecast_artifacts_are_current(output_dir: Path) -> bool:
 def get_forecast_bundle(
     *,
     horizon: int = 24,
+    min_sensor_rows: int = 240,
     refresh: bool = False,
 ) -> dict:
     _require_file(NORMALIZED, "Normalized traffic dataset")
@@ -71,14 +72,53 @@ def get_forecast_bundle(
     if not 1 <= horizon <= 168:
         raise ValueError("Forecast horizon must be between 1 and 168.")
 
-    output_dir = REPORTS / "forecasting"
+    if min_sensor_rows < 20:
+        raise ValueError("min_sensor_rows must be at least 20.")
 
-    if refresh or not _forecast_artifacts_are_current(output_dir):
+    output_dir = REPORTS / "forecasting"
+    metadata_path = output_dir / "intelligence_cache_metadata.json"
+
+    expected_metadata = {
+        "horizon": horizon,
+        "min_sensor_rows": min_sensor_rows,
+        "source_mtime": NORMALIZED.stat().st_mtime,
+    }
+
+    required_artifacts = [
+        output_dir / "summary.json",
+        output_dir / "model_metrics.csv",
+        output_dir / "next_24h_forecasts.csv",
+        output_dir / "traffic_anomalies.csv",
+    ]
+
+    cache_valid = False
+
+    if not refresh and metadata_path.exists():
+        try:
+            cached_metadata = json.loads(
+                metadata_path.read_text(encoding="utf-8")
+            )
+            cache_valid = (
+                cached_metadata == expected_metadata
+                and all(path.exists() for path in required_artifacts)
+            )
+        except (OSError, ValueError):
+            cache_valid = False
+
+    if not cache_valid:
         summary = run_predictive_analytics(
             NORMALIZED,
             output_dir=output_dir,
+            min_sensor_rows=min_sensor_rows,
             horizon=horizon,
         )
+
+        # Only mark successful runs as reusable.
+        if summary.get("status") == "success":
+            metadata_path.write_text(
+                json.dumps(expected_metadata, indent=2),
+                encoding="utf-8",
+            )
     else:
         summary = json.loads(
             (output_dir / "summary.json").read_text(
@@ -134,7 +174,6 @@ def get_forecast_bundle(
     )
 
     return bundle
-
 
 def get_geographic_analysis() -> dict:
     _require_file(NORMALIZED, "Normalized traffic dataset")

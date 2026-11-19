@@ -92,7 +92,7 @@ def normalize_records(input_path: Path, output_path: Path) -> pl.DataFrame:
         )
 
     expressions = [
-        pl.col(date_col).cast(pl.String).str.to_datetime(strict=False).alias("timestamp"),
+        pl.col(date_col).cast(pl.String).str.to_datetime(strict=False, time_zone="UTC").alias("timestamp"),
         pl.col(sensor_col).cast(pl.String).alias("sensor_id"),
     ]
     if flow_col:

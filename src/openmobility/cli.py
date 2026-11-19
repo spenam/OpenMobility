@@ -11,7 +11,10 @@ from openmobility.ingestion.paris_traffic import fetch_records
 from openmobility.processing.exploratory import build_exploratory_outputs
 from openmobility.processing.normalize import inspect_schema, normalize_records
 from openmobility.processing.quality import build_quality_report
-from openmobility.visualization.traffic import plot_traffic_summaries
+from openmobility.visualization.traffic import (
+    plot_traffic_summaries,
+    plot_sensor_availability,
+)
 
 app = typer.Typer(no_args_is_help=True, help="OpenMobility Paris data tools")
 RAW = Path("data/raw/paris_traffic.jsonl")
@@ -77,6 +80,7 @@ def explore(
 
     chart_dir = output_dir / "charts"
     plot_traffic_summaries(output_dir, chart_dir)
+    plot_sensor_availability(output_dir, chart_dir)
 
     print("[bold green]Exploratory analysis completed.[/bold green]")
     print(json.dumps(summary, indent=2))

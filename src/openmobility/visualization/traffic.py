@@ -3,6 +3,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from datetime import datetime
 
 
 def plot_traffic_summaries(
@@ -147,6 +148,7 @@ def plot_sensor_availability(
         pl.col("sensor_id").is_in(selected_sensors)
     ).sort("hour")
 
+    #hour_values = sorted(selected["hour"].unique().to_list())
     hour_values = sorted(selected["hour"].unique().to_list())
     sensor_values = selected_sensors
 
@@ -194,7 +196,13 @@ def plot_sensor_availability(
 
     ax.set_xticks(range(len(hour_values)))
     ax.set_xticklabels(
-        [hour.strftime("%m-%d %H:%M") for hour in hour_values],
+        [
+            datetime.strptime(
+                hour,
+                "%Y-%m-%dT%H:%M:%S.%f%z"
+            ).strftime("%m-%d %H:%M")
+            for hour in hour_values
+        ],
         rotation=45,
         ha="right",
     )

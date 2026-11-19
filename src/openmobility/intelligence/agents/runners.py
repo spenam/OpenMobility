@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
+from openmobility.intelligence import tools
 from openmobility.intelligence.graph import (
     AgentRunner,
     ToolBudget,
@@ -12,7 +13,6 @@ from openmobility.intelligence.schemas import (
     SpecialistFinding,
 )
 from openmobility.intelligence.state import InvestigationState
-from openmobility.intelligence import tools
 
 
 def _scope_value(

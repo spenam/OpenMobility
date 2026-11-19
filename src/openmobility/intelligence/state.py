@@ -1,16 +1,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from operator import add
 from typing import Annotated, Literal, TypedDict
-
-from openmobility.intelligence.schemas import (
-    AgentName,
-    IntelligenceReport,
-    SpecialistFinding,
-)
-
 
 AgentName = Literal[
     "traffic",
@@ -105,7 +98,7 @@ def create_initial_state(
         raise ValueError("max_tool_calls must be at least 1.")
 
     return {
-        "investigation_id": datetime.now(timezone.utc).isoformat(),
+        "investigation_id": datetime.now(UTC).isoformat(),
         "user_question": question,
         "objectives": [],
         "investigation_scope": investigation_scope or {},

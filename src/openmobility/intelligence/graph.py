@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Callable, Mapping
+from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
@@ -17,7 +17,6 @@ from openmobility.intelligence.state import (
     InvestigationState,
     ToolExecution,
 )
-
 
 AGENTS: tuple[AgentName, ...] = (
     "traffic",
@@ -73,7 +72,7 @@ class ToolBudget:
             "tool_name": tool_name,
             "agent": self.agent,
             "arguments": arguments or {},
-            "executed_at": datetime.now(timezone.utc).isoformat(),
+            "executed_at": datetime.now(UTC).isoformat(),
         }
 
         try:

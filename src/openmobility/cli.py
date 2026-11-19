@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import typer
+from dotenv import load_dotenv
 from rich import print
 from rich.table import Table
 
@@ -11,6 +12,15 @@ from openmobility.ingestion.paris_geography import (
     fetch_geographic_reference,
 )
 from openmobility.ingestion.paris_traffic import fetch_records
+from openmobility.intelligence.agents.runners import (
+    build_agent_runners,
+)
+from openmobility.intelligence.graph import (
+    build_intelligence_graph,
+)
+from openmobility.intelligence.state import (
+    create_initial_state,
+)
 from openmobility.processing.evaluation import run_evaluation
 from openmobility.processing.exploratory import build_exploratory_outputs
 from openmobility.processing.geography import (
@@ -24,15 +34,8 @@ from openmobility.visualization.traffic import (
     plot_sensor_availability,
     plot_traffic_summaries,
 )
-from openmobility.intelligence.graph import (
-    build_intelligence_graph,
-)
-from openmobility.intelligence.agents.runners import (
-    build_agent_runners,
-)
-from openmobility.intelligence.state import (
-    create_initial_state,
-)
+
+load_dotenv()
 
 app = typer.Typer(no_args_is_help=True, help="OpenMobility Paris data tools")
 RAW = Path("data/raw/paris_traffic.jsonl")

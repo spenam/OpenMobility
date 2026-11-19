@@ -5,9 +5,7 @@ from pathlib import Path
 import branca.colormap as cm
 import folium
 import geopandas as gpd
-from dotenv import load_dotenv
 
-load_dotenv()
 
 def create_traffic_map(
     geographic_parquet: Path,

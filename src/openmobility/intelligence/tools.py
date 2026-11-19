@@ -1,20 +1,17 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import json
+from pathlib import Path
 
 import pandas as pd
 
 from openmobility.processing.evaluation import run_evaluation
 from openmobility.processing.exploratory import build_exploratory_outputs
 from openmobility.processing.geography import build_geographic_dataset
+from openmobility.processing.network import build_network_topology
 from openmobility.processing.predictive import run_predictive_analytics
 from openmobility.processing.quality import build_quality_report
-from openmobility.processing.network import build_network_topology
-
-
 
 NORMALIZED = Path("data/processed/paris_traffic_normalized.parquet")
 GEO_RAW = Path("data/raw/paris_sensor_geography.geojson")

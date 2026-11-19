@@ -9,6 +9,7 @@ from rich.table import Table
 
 from openmobility.ingestion.paris_traffic import fetch_records
 from openmobility.processing.normalize import inspect_schema, normalize_records
+from openmobility.processing.quality import build_quality_report
 
 app = typer.Typer(no_args_is_help=True, help="OpenMobility Paris data tools")
 RAW = Path("data/raw/paris_traffic.jsonl")
@@ -48,6 +49,17 @@ def preprocess() -> None:
     frame = normalize_records(RAW, NORMALIZED)
     print(f"[green]Wrote {frame.height:,} normalized rows to {NORMALIZED}[/green]")
     print(frame.head(5))
+
+@app.command()
+def quality() -> None:
+    """Generate a data-quality report."""
+    if not NORMALIZED.exists():
+        raise typer.BadParameter(
+            "Normalized dataset not found. Run `openmobility preprocess` first."
+        )
+
+    report = build_quality_report(NORMALIZED)
+    print(json.dumps(report, indent=2, default=str))
 
 
 if __name__ == "__main__":

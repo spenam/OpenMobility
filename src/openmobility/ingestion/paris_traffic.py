@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -64,7 +64,7 @@ def fetch_records(
     metadata = {
         "dataset_id": DATASET_ID,
         "portal_url": PORTAL_URL,
-        "downloaded_at_utc": datetime.now(timezone.utc).isoformat(),
+        "downloaded_at_utc": datetime.now(UTC).isoformat(),
         "records_downloaded": written,
         "max_records_requested": max_records,
         "page_size": page_size,

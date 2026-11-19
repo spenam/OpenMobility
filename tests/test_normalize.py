@@ -15,10 +15,18 @@ def test_normalize_minimal_source(tmp_path: Path) -> None:
         {"t_1h": "2025-01-01T09:00:00", "iu_ac": "sensor-1",
          "debit_horaire": 160, "taux_occupation": 48.0, "etat_trafic": "Pré-saturé"},
     ]
-    source.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows))
+    source.write_text(
+        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+        encoding="utf-8",
+    )
     result = normalize_records(source, output)
     assert result.height == 2
-    assert {"timestamp", "sensor_id", "flow_vehicles_per_hour", "occupancy_pct"} <= set(result.columns)
+    assert {
+        "timestamp", 
+        "sensor_id", 
+        "flow_vehicles_per_hour", 
+        "occupancy_pct"
+    } <= set(result.columns)
     assert output.exists()
 
 

@@ -21,7 +21,7 @@ FLOW_CANDIDATES = (
     "nb_vehicules", "flow", "traffic_flow" "volume", "q"
 )
 OCCUPANCY_CANDIDATES = (
-    "taux_occupation", "occupation", "occupancy", "occupancy_rate", "taux_occup",
+    "taux_occupation", "occupation", "occupancy", "occupancy_rate", "taux_occup", "k"
 )
 STATE_CANDIDATES = ("etat_trafic", "etat", "traffic_state", "etat_de_la_circulation")
 
@@ -92,15 +92,32 @@ def normalize_records(input_path: Path, output_path: Path) -> pl.DataFrame:
         )
 
     expressions = [
-        pl.col(date_col).cast(pl.String).str.to_datetime(strict=False, time_zone="UTC").alias("timestamp"),
+        (
+            pl.col(date_col)
+            .cast(pl.String)
+            .str.to_datetime(strict=False, time_zone="UTC")
+            .alias("timestamp")
+        ),
         pl.col(sensor_col).cast(pl.String).alias("sensor_id"),
     ]
     if flow_col:
-        expressions.append(pl.col(flow_col).cast(pl.Float64, strict=False).alias("flow_vehicles_per_hour"))
+        expressions.append(
+            pl.col(flow_col)
+            .cast(pl.Float64, strict=False)
+            .alias("flow_vehicles_per_hour")
+            )
     if occupancy_col:
-        expressions.append(pl.col(occupancy_col).cast(pl.Float64, strict=False).alias("occupancy_pct"))
+        expressions.append(
+            pl.col(occupancy_col)
+            .cast(pl.Float64, strict=False)
+            .alias("occupancy_pct")
+            )
     if state_col:
-        expressions.append(pl.col(state_col).cast(pl.String).alias("traffic_state"))
+        expressions.append(
+            pl.col(state_col)
+            .cast(pl.String)
+            .alias("traffic_state")
+            )
 
     normalized = frame.select(expressions).filter(
         pl.col("timestamp").is_not_null() & pl.col("sensor_id").is_not_null()

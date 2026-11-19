@@ -12,6 +12,12 @@ The long-term objective is to extend this foundation toward traffic forecasting,
 
 ![Paris hourly traffic monitoring](images/road_analysis.png)
 
+Some prediction forecasting done by a simple XGboost model on 4 days of data:
+![Distribution of residuals of predictions](images/residual_distribution.png)
+![Scatter plot of residuals vs predictions](images/residuals_vs_prediciton.png)
+![Forecast plot of a single sensor in Paris](images/sensor_164_forecast.png)
+
+
 ---
 
 ## Features

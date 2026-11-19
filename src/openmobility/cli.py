@@ -15,10 +15,20 @@ from openmobility.visualization.traffic import (
     plot_traffic_summaries,
     plot_sensor_availability,
 )
+from openmobility.ingestion.paris_geography import (
+    fetch_geographic_reference,
+)
+from openmobility.processing.geography import (
+    build_geographic_dataset,
+)
+from openmobility.visualization.maps import create_traffic_map
 
 app = typer.Typer(no_args_is_help=True, help="OpenMobility Paris data tools")
 RAW = Path("data/raw/paris_traffic.jsonl")
 NORMALIZED = Path("data/processed/paris_traffic_normalized.parquet")
+GEO_RAW = Path("data/raw/paris_sensor_geography.geojson")
+GEO_PROCESSED = Path("data/processed/paris_sensor_geography.parquet")
+TRAFFIC_MAP = Path("reports/eda/sensor_traffic_map.html")
 
 
 @app.command()
@@ -85,6 +95,48 @@ def explore(
     print("[bold green]Exploratory analysis completed.[/bold green]")
     print(json.dumps(summary, indent=2))
     print(f"Charts saved to: {chart_dir}")
+
+@app.command()
+def fetch_geography() -> None:
+    """Download the Paris road-network geographic reference."""
+    path = fetch_geographic_reference(GEO_RAW)
+    print(f"[green]Geographic reference downloaded:[/green] {path}")
+
+
+@app.command()
+def map_traffic() -> None:
+    """Join traffic measurements to road geometry and create a map."""
+    if not GEO_RAW.exists():
+        raise typer.BadParameter(
+            "Geographic reference not found. Run fetch-geography first."
+        )
+
+    if not NORMALIZED.exists():
+        raise typer.BadParameter(
+            "Normalized traffic data not found. Run preprocess first."
+        )
+
+    summary = build_geographic_dataset(
+        GEO_RAW,
+        NORMALIZED,
+        GEO_PROCESSED,
+    )
+
+    print("[bold]Geographic join summary[/bold]")
+    print(json.dumps(summary, indent=2))
+
+    if summary["matched_segments"] == 0:
+        raise typer.BadParameter(
+            "No geographic segments matched traffic sensors. "
+            "Check the sensor ID formats."
+        )
+
+    output = create_traffic_map(
+        GEO_PROCESSED,
+        TRAFFIC_MAP,
+    )
+
+    print(f"[green]Traffic map created:[/green] {output}")
 
 
 if __name__ == "__main__":

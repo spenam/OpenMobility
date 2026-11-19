@@ -23,6 +23,8 @@ from openmobility.visualization.traffic import (
     plot_traffic_summaries,
 )
 from openmobility.processing.predictive import run_predictive_analytics
+from openmobility.processing.evaluation import run_evaluation
+
 
 
 app = typer.Typer(no_args_is_help=True, help="OpenMobility Paris data tools")
@@ -31,6 +33,7 @@ NORMALIZED = Path("data/processed/paris_traffic_normalized.parquet")
 GEO_RAW = Path("data/raw/paris_sensor_geography.geojson")
 GEO_PROCESSED = Path("data/processed/paris_sensor_geography.parquet")
 TRAFFIC_MAP = Path("reports/eda/sensor_traffic_map.html")
+HOLDOUT_PREDICTIONS = Path("reports/forecasting/holdout_predictions.csv")
 
 
 @app.command()
@@ -160,6 +163,26 @@ def predict(
     )
     if verbose:
         print("[bold]Predictive analytics summary[/bold]")
+        print(json.dumps(summary, indent=2))
+
+@app.command()
+def evaluate(
+    output_dir: Path = Path("reports/evaluation"),
+    min_sensor_rows: int = typer.Option(40, min=20),
+    verbose: bool = typer.Option(False, help="Print detailed progress messages."),
+) -> None:
+    """Evaluate XGBoost traffic models and compare to baseline."""
+    if not HOLDOUT_PREDICTIONS.exists():
+        raise typer.BadParameter(
+            f"Predictions dataset not found: {HOLDOUT_PREDICTIONS}. Run preprocess first."
+        )
+    summary = run_evaluation(
+        HOLDOUT_PREDICTIONS,
+        output_dir=output_dir,
+        min_sensor_rows=min_sensor_rows,
+    )
+    if verbose:
+        print("[bold]Evaluation summary[/bold]")
         print(json.dumps(summary, indent=2))
 
 

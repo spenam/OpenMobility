@@ -1,9 +1,13 @@
 from pathlib import Path
+from dotenv import load_dotenv
+
 
 import folium
 import geopandas as gpd
 import branca.colormap as cm
+import json
 
+load_dotenv()
 
 def create_traffic_map(
     geographic_parquet: Path,
@@ -24,6 +28,18 @@ def create_traffic_map(
     # Only display segments with available traffic measurements.
     mapped = roads.dropna(subset=["mean_flow"]).copy()
 
+    mapped = mapped[
+        mapped.geometry.notna() & ~mapped.geometry.is_empty
+    ].copy()
+
+    for column in mapped.columns:
+        if column == mapped.geometry.name:
+            continue
+
+        if mapped[column].dtype == "datetime64[ns]":
+            mapped[column] = mapped[column].astype(str)
+
+
     if mapped.empty:
         raise ValueError(
             "No geographic segments matched traffic measurements."
@@ -41,10 +57,27 @@ def create_traffic_map(
 
     center = mapped.geometry.union_all().centroid
 
+    carto_api_key = os.getenv("CARTO_API_KEY")
+
+    if not carto_api_key:
+        raise ValueError("CARTO_API_KEY is missing from environment variables.")
+
+    carto_tiles = (
+        "https://{s}.basemaps.cartocdn.com/"
+        "light_all/{z}/{x}/{y}.png"
+        f"?key={carto_api_key}"
+    )
+
     traffic_map = folium.Map(
         location=[center.y, center.x],
         zoom_start=12,
-        tiles="CartoDB positron",
+        tiles=carto_tiles,
+        attr=(
+            '&copy; <a href="https://www.openstreetmap.org/copyright">'
+            'OpenStreetMap</a> contributors '
+            '&copy; <a href="https://carto.com/attributions">CARTO</a>'
+        ),
+        subdomains="abcd",
     )
 
     def style_function(feature):
@@ -77,8 +110,20 @@ def create_traffic_map(
         if field in mapped.columns
     ]
 
+    for col in mapped.columns:
+        if col != mapped.geometry.name:
+            mapped[col] = mapped[col].map(
+                lambda value: value.isoformat()
+                if hasattr(value, "isoformat")
+                else value
+            )
+
+    geojson_data = json.loads(
+        mapped.to_json(drop_id=True, na="null")
+    )
+
     folium.GeoJson(
-        mapped,
+        geojson_data,
         name="Traffic by road segment",
         style_function=style_function,
         tooltip=folium.GeoJsonTooltip(

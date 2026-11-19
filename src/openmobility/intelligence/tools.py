@@ -108,6 +108,7 @@ def get_forecast_bundle(
             output_dir=output_dir,
             min_sensor_rows=min_sensor_rows,
             horizon=horizon,
+            refresh=refresh,
         )
 
         # Only mark successful runs as reusable.

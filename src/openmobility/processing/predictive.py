@@ -196,6 +196,7 @@ def run_predictive_analytics(
     output_dir: Path = Path("reports/forecasting"),
     min_sensor_rows: int = 240,
     horizon: int = 24,
+    refresh: bool = False,
 ) -> dict:
     """Train/evaluate one XGBoost model per sensor and forecast the next hours."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -228,6 +229,49 @@ def run_predictive_analytics(
     anomaly_frames = []
     model_dir = output_dir / "models"
     model_dir.mkdir(exist_ok=True)
+
+    model_dir = output_dir / "models"
+
+    if not refresh and any(model_dir.glob("sensor_*.json")):
+        result = _forecast_with_saved_models(
+            sensors=sensors,
+            model_dir=model_dir,
+            horizon=horizon,
+            min_sensor_rows=min_sensor_rows,
+        )
+
+        forecasts = result["forecasts"]
+        forecasts.to_csv(
+            output_dir / "next_24h_forecasts.csv",
+            index=False,
+        )
+        forecasts.to_parquet(
+            output_dir / "next_24h_forecasts.parquet",
+            index=False,
+        )
+
+        summary = {
+            "status": "success",
+            "forecast_rows": len(forecasts),
+            "sensors_modelled": forecasts["sensor_id"].nunique()
+                if not forecasts.empty else 0,
+            "forecast_file": str(output_dir / "next_24h_forecasts.csv"),
+            "models_directory": str(model_dir),
+            "models_reused": result["models_reused"],
+            "models_trained": result["models_trained"],
+            "model_refresh": False,
+            "evaluation_artifacts_reused": (
+                (output_dir / "model_metrics.csv").exists()
+                and (output_dir / "traffic_anomalies.csv").exists()
+            ),
+            "skipped_sensors": result["skipped_sensors"],
+        }
+
+        (output_dir / "summary.json").write_text(
+            json.dumps(summary, indent=2),
+            encoding="utf-8",
+        )
+        return summary
 
     for sensor_id, frame in tqdm(
         sensors.items(),
@@ -366,3 +410,82 @@ def run_predictive_analytics(
     }
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return summary
+
+def _forecast_with_saved_models(
+    sensors: dict[str, pd.DataFrame],
+    model_dir: Path,
+    horizon: int,
+    min_sensor_rows: int,
+) -> dict:
+    """Forecast using saved models; train only models that do not exist."""
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    future_frames = []
+    models_reused = 0
+    models_trained = 0
+    skipped_sensors = []
+
+    for sensor_id, frame in sensors.items():
+        model_frame = frame.dropna(
+            subset=["target", "lag_1", "lag_24", "rolling_mean_24"]
+        )
+
+        if len(model_frame) < 80:
+            skipped_sensors.append({
+                "sensor_id": sensor_id,
+                "reason": "insufficient_rows_for_forecasting",
+            })
+            continue
+
+        model_path = model_dir / f"sensor_{sensor_id}.json"
+
+        model = XGBRegressor()
+
+        if model_path.exists():
+            model.load_model(str(model_path))
+            models_reused += 1
+        else:
+            model = _model()
+            model.fit(model_frame[FEATURES], model_frame["target"])
+            model.save_model(str(model_path))
+            models_trained += 1
+
+        history = frame["target"].dropna().copy()
+        if history.empty:
+            continue
+
+        last_timestamp = history.index[-1]
+        occ_values = frame["occupancy_lag_1"].dropna()
+        occupancy = float(occ_values.iloc[-1]) if not occ_values.empty else 0.0
+
+        rows = []
+        for step in range(1, horizon + 1):
+            timestamp = last_timestamp + pd.Timedelta(hours=step)
+            features = _make_future_features(
+                history, timestamp, occupancy
+            )
+            x = pd.DataFrame([features], columns=FEATURES)
+            predicted = max(0.0, float(model.predict(x)[0]))
+
+            rows.append({
+                "timestamp": timestamp,
+                "sensor_id": sensor_id,
+                "forecast_horizon_hours": step,
+                "predicted_flow": predicted,
+            })
+            history.loc[timestamp] = predicted
+
+        future_frames.append(pd.DataFrame(rows))
+
+    forecasts = (
+        pd.concat(future_frames, ignore_index=True)
+        if future_frames else pd.DataFrame()
+    )
+
+    return {
+        "forecasts": forecasts,
+        "models_reused": models_reused,
+        "models_trained": models_trained,
+        "skipped_sensors": skipped_sensors,
+    }
+

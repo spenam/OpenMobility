@@ -123,15 +123,20 @@ def _predictive_runner(
         _scope_value(state, "forecast_horizon_hours", 24)
     )
     refresh = bool(_scope_value(state, "refresh_analytics", False))
+    min_sensor_rows = int(
+        _scope_value(state, "min_sensor_rows", 40)
+    )
 
     bundle = budget.call(
         "get_forecast_bundle",
         tools.get_forecast_bundle,
         horizon=horizon,
+        min_sensor_rows=min_sensor_rows,
         refresh=refresh,
         arguments={
             "horizon": horizon,
             "refresh": refresh,
+            "min_sensor_rows": min_sensor_rows,
         },
         result_summary=lambda result: (
             f"Forecast analytics status: "

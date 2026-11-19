@@ -64,7 +64,7 @@ def _forecast_artifacts_are_current(output_dir: Path) -> bool:
 def get_forecast_bundle(
     *,
     horizon: int = 24,
-    min_sensor_rows: int = 240,
+    min_sensor_rows: int = 40,
     refresh: bool = False,
 ) -> dict:
     _require_file(NORMALIZED, "Normalized traffic dataset")
